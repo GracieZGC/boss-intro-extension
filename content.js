@@ -412,6 +412,9 @@
       acc = 0;
       playMode = 'loop';
       onComplete = null;
+      // 若新动作的帧尚未加载完成，这里刻意不清空画布：
+      // 保留上一帧可避免黑屏闪烁（见 cat-player 测试）。
+      // 「完成时仍显示钻」的问题由预加载解决：帧在切换前就已就绪。
       draw(0);
     };
     canvas.__playOnce = (m, done) => {
@@ -862,6 +865,9 @@
     btn.disabled = true;
     status.textContent = '小猫正在用电钻打磨你的自我介绍，稍等 3-15 秒…';
     setPanelMotion('drill', '钻钻钻，打磨中~');
+    // 生成需要 3-15 秒，趁这段时间把「举手」帧预加载好：
+    // 保证完成时能立即切到举手，不会残留钻钻钻的画面。
+    preloadMotion('hand');
 
     // 扩展被重新加载/更新后，旧页面里的 content script 会失去上下文，
     // 此时任何与 background 的通信都会失败——提示用户刷新页面。
@@ -1047,6 +1053,12 @@
     observeDomChanges();
     observeClicks();
     setTimeout(() => { if (panel && panel.style.display !== 'none') refreshJob(); }, 1200);
+    // 首屏渲染完成后，空闲时预加载其余动作帧。
+    // 否则从「钻钻钻」切到「举手」的瞬间 hand 帧才开始下载，
+    // 画布会停留在钻的最后一帧，看起来像「打磨完成了还在钻」。
+    setTimeout(() => {
+      for (const m of ['drill', 'hand', 'delivery']) preloadMotion(m);
+    }, 1500);
   }
 
   if (document.readyState === 'loading') {
