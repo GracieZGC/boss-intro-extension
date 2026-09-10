@@ -897,6 +897,22 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  // 点击岗位卡片是最直接的「切了岗位」信号，作为 MutationObserver 的补充，
+  // 每次点击后在两个时间点各试一次（应对详情区异步渲染）。
+  function observeClicks() {
+    document.addEventListener('click', (e) => {
+      const el = e.target;
+      if (!el || typeof el.closest !== 'function') return;
+      const hit = el.closest(
+        '.job-card-wrapper, .job-list-box, [class*="job-card"], [class*="jobCard"], ' +
+        'li[class*="job"], .job-list li, [class*="job-item"]'
+      );
+      if (!hit) return;
+      setTimeout(refreshIfJobChanged, 600);
+      setTimeout(refreshIfJobChanged, 1400);
+    }, true);
+  }
+
   let debugBadge = null;
   function updateDebugBadge(title, desc, url) {
     if (!debugBadge) {
@@ -917,6 +933,7 @@
     updateDebugBadge('', '', location.href);
     watchUrl();
     observeDomChanges();
+    observeClicks();
     setTimeout(() => { if (panel && panel.style.display !== 'none') refreshJob(); }, 1200);
   }
 
