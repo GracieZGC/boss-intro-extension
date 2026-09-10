@@ -715,6 +715,7 @@
     status.textContent = desc
       ? '猫猫已抓取岗位描述（' + desc.length + ' 字）'
       : '猫猫没抓到岗位描述，请手动粘贴（若能选中页面文字，选中后复制到此处）。';
+    updateDebugBadge(title, desc, location.href);
   }
 
   function generate() {
@@ -860,10 +861,24 @@
     window.addEventListener('popstate', trigger);
   }
 
+  let debugBadge = null;
+  function updateDebugBadge(title, desc, url) {
+    if (!debugBadge) {
+      debugBadge = document.createElement('div');
+      debugBadge.id = ASSET_ID + '-debug';
+      debugBadge.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647;background:#1D1D1B;color:#fff;font:12px/1.5 system-ui;padding:8px 10px;border-radius:8px;max-width:320px;word-break:break-all;pointer-events:none;opacity:.85;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+      document.body.appendChild(debugBadge);
+    }
+    const shortUrl = String(url || location.href).slice(0, 80);
+    const shortDesc = String(desc || '').slice(0, 60);
+    debugBadge.textContent = '[boss-intro debug]\nurl: ' + shortUrl + '\ntitle: ' + (title || '-') + '\ndesc: ' + shortDesc + ' (' + (desc || '').length + '字)';
+  }
+
   function init() {
     injectStyle();
     buildPanel();
     ensureFab();
+    updateDebugBadge('', '', location.href);
     watchUrl();
     setTimeout(() => { if (panel && panel.style.display !== 'none') refreshJob(); }, 1200);
   }
