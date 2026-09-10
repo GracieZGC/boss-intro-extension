@@ -21,6 +21,22 @@
     '[class*="jobName"]'
   ];
 
+  // 详情区内部的标题选择器：列表页的卡片标题用的是 .job-title，
+  // 而右侧详情区的岗位名称往往是别的 class，需要更宽的一组候选。
+  const DETAIL_TITLE_SELECTORS = [
+    '[class*="job-name"]',
+    '[class*="jobName"]',
+    '[class*="position-name"]',
+    '[class*="positionName"]',
+    '[class*="job-title"]',
+    '[class*="jobTitle"]',
+    '[class*="position-title"]',
+    '[class*="positionTitle"]',
+    '.job-title',
+    'h1', 'h2', 'h3',
+    '[class*="title"]'
+  ];
+
   const DESC_SELECTORS = [
     '#job-detail',
     '.job-detail',
@@ -164,7 +180,7 @@
   // 在指定根节点内查找标题；先查自身再查后代
   function findTitleIn(root, skipListCard) {
     if (!root) return '';
-    for (const sel of TITLE_SELECTORS) {
+    for (const sel of DETAIL_TITLE_SELECTORS) {
       const els = root.querySelectorAll(sel);
       for (const el of els) {
         if (!isVisible(el)) continue;
@@ -222,6 +238,20 @@
           node = node.parentElement;
         }
       }
+      // 诊断：详情区类名 + 区内短文本元素（用于定位标题真实 class）
+      diag.push('root=' + String(detailRoot.className || '-').slice(0, 28));
+      const innerCands = [];
+      const innerAll = detailRoot.querySelectorAll('*');
+      for (const el of innerAll) {
+        if (innerCands.length >= 6) break;
+        if (el.children.length > 0) continue;
+        if (!isVisible(el)) continue;
+        const t = cleanText(el);
+        if (t.length < 2 || t.length > 40) continue;
+        const cls = String(el.className || el.tagName).slice(0, 18);
+        innerCands.push(cls + ':' + t.slice(0, 10));
+      }
+      if (innerCands.length) diag.push('in=' + innerCands.join('|'));
     }
 
     if (!title) {
