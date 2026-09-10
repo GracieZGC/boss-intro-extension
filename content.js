@@ -839,15 +839,16 @@
     let timer = null;
     setInterval(() => {
       if (location.href !== last) {
+        console.log('[boss-intro] URL changed:', last, '->', location.href);
         last = location.href;
         clearTimeout(timer);
         // BOSS 是 SPA：切岗位时 URL 先变、DOM 后渲染，延迟再抓取。
-        // 同时去掉「面板打开才刷新」的限制，保证面板内外都能更新。
         timer = setTimeout(() => {
+          console.log('[boss-intro] refreshJob after delay, url:', location.href);
           refreshJob(true);
           const reqWrap = document.getElementById(ASSET_ID + '-req-wrap');
           if (reqWrap) reqWrap.style.display = 'none';
-        }, 600);
+        }, 800);
       }
     }, 1500);
   }
