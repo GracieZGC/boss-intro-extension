@@ -837,7 +837,7 @@
   function watchUrl() {
     let last = location.href;
     let timers = [];
-    setInterval(() => {
+    const trigger = () => {
       if (location.href !== last) {
         console.log('[boss-intro] URL changed:', last, '->', location.href);
         last = location.href;
@@ -855,7 +855,9 @@
           if (reqWrap) reqWrap.style.display = 'none';
         }, 1200));
       }
-    }, 1500);
+    };
+    setInterval(trigger, 1500);
+    window.addEventListener('popstate', trigger);
   }
 
   function init() {
