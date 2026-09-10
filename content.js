@@ -895,7 +895,7 @@
       if (res && res.intro) {
         const tag = res.mode === 'llm' ? '大模型润色版' : '规则版';
         const cleaned = res.cleaned ? '，已自动清理思考过程' : '';
-        status.textContent = '打磨完成！（' + tag + cleaned + '），喵~';
+        status.textContent = '打磨完成！（' + tag + cleaned + '），AI也会犯错，记得看一眼再发出去~喵~';
         setPanelMotion('hand', '好耶，打磨完成~');
         showResult(res.mode, res.intro);
       }
