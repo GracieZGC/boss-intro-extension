@@ -293,8 +293,9 @@
   // ---------- 帧动画播放器 ----------
   const MOTIONS = ['idle', 'drill', 'hand', 'delivery'];
   // idle 用 20fps 完整动作（73帧），其余 12fps（12帧）
+  // idle 用 20fps 完整动作（73帧）；hand/delivery 放慢一些，让结果姿势看得清
   const FRAME_COUNT = { idle: 73, drill: 12, hand: 12, delivery: 12 };
-  const FRAME_MS = { idle: 50, drill: 85, hand: 220, delivery: 85 };
+  const FRAME_MS = { idle: 50, drill: 85, hand: 220, delivery: 140 };
   // 各动作的起始播放帧。素材每一段都从「工作姿势」开始，末尾才是结果姿势：
   //   hand:     f_000~f_009 抱钻  ->  f_010~f_011 举手庆祝
   //   delivery: f_000~f_006 抱钻  ->  f_007~f_011 竖拇指点赞
@@ -448,6 +449,7 @@
   let fabCat = null;
   let stateDock = null;
   let stateCatWrap = null;
+  let deliveryHoldTimer = null;
 
   const css = `
     #${ASSET_ID}-fab {
@@ -967,9 +969,14 @@
         const animStatus = document.getElementById(ASSET_ID + '-animstatus');
         if (animStatus) animStatus.textContent = '复制成功啦~客官下次再来！';
         fabCat.__playOnce('delivery', () => {
-          setPanelMotion('hand', '好耶，打磨完成~');
+          // 按钮立即恢复可用，但点赞姿势要多停留一会儿再回到举手，
+          // 否则 5 帧（约 0.4 秒）一闪而过，用户看不清。
           copyBtn.classList.remove('bih-copied');
           copyBtn.disabled = false;
+          clearTimeout(deliveryHoldTimer);
+          deliveryHoldTimer = setTimeout(() => {
+            setPanelMotion('hand', '好耶，打磨完成~');
+          }, 1800);
         });
       }
     };
