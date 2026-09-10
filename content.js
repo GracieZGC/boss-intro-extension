@@ -971,12 +971,13 @@
         fabCat.__playOnce('delivery', () => {
           // 按钮立即恢复可用，但点赞姿势要多停留一会儿再回到举手，
           // 否则 5 帧（约 0.4 秒）一闪而过，用户看不清。
+          // 停留 2 秒，加上约 0.7 秒播放，点赞姿势总计可见约 2.7 秒。
           copyBtn.classList.remove('bih-copied');
           copyBtn.disabled = false;
           clearTimeout(deliveryHoldTimer);
           deliveryHoldTimer = setTimeout(() => {
             setPanelMotion('hand', '好耶，打磨完成~');
-          }, 1800);
+          }, 2000);
         });
       }
     };
