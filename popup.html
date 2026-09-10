@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>BOSS AI 自我介绍助手</title>
+  <style>
+    body { width: 320px; font-family: system-ui, -apple-system, sans-serif; margin: 0; color: #1f2329; }
+    .head { background: #00c2b3; color: #fff; padding: 14px 16px; }
+    .head b { font-size: 15px; }
+    .head div { font-size: 12px; opacity: .9; margin-top: 2px; }
+    .body { padding: 14px 16px; font-size: 13px; line-height: 1.6; }
+    .steps { margin: 8px 0; padding-left: 18px; }
+    .steps li { margin-bottom: 6px; }
+    .status { background: #f4f9ff; border: 1px solid #bedaf0; border-radius: 6px; padding: 8px 10px; font-size: 12px; margin: 10px 0; }
+    .btn {
+      display: block; width: 100%; box-sizing: border-box; text-align: center;
+      background: #00c2b3; color: #fff; border: none; border-radius: 6px;
+      padding: 9px 0; font-size: 14px; cursor: pointer; margin-top: 4px; text-decoration: none;
+    }
+    .btn.ghost { background: #fff; color: #00b3a6; border: 1px solid #00b3a6; margin-top: 8px; }
+    .ok { color: #00a99d; }
+    .warn { color: #d99000; }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <b>BOSS AI 自我介绍助手</b>
+    <div>在岗位详情页一键生成定制化自我介绍</div>
+  </div>
+  <div class="body">
+    <div class="status" id="status">加载中…</div>
+    <b>使用方法</b>
+    <ol class="steps">
+      <li>打开任意 BOSS直聘 岗位详情页</li>
+      <li>页面右下角点「✨ 自我介绍」</li>
+      <li>确认抓取的岗位内容，点「一键生成自我介绍」</li>
+      <li>复制结果，粘到打招呼处</li>
+    </ol>
+    <a class="btn" href="#" id="open-options">⚙ 打开设置（API Key / 模型 / 素材）</a>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

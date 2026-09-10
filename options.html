@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>设置 - BOSS AI 自我介绍助手</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; color: #1f2329; max-width: 640px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 15px; margin: 22px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    label { display: block; font-size: 13px; color: #4e5969; margin: 12px 0 4px; }
+    input, textarea, select {
+      width: 100%; box-sizing: border-box; border: 1px solid #d9dce1; border-radius: 6px;
+      padding: 8px 10px; font-size: 13px; font-family: inherit; color: #1f2329;
+    }
+    textarea { resize: vertical; line-height: 1.6; }
+    .hint { font-size: 12px; color: #8a8f99; margin-top: 4px; line-height: 1.5; }
+    .btn-row { margin-top: 20px; display: flex; gap: 10px; }
+    .btn {
+      background: #00c2b3; color: #fff; border: none; border-radius: 6px;
+      padding: 10px 24px; font-size: 14px; cursor: pointer;
+    }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn.ghost { background: #fff; color: #4e5969; border: 1px solid #d9dce1; }
+    #save-status { margin-left: 12px; font-size: 13px; color: #00a99d; }
+    .presets { display: flex; gap: 8px; margin: 8px 0; }
+    .preset {
+      border: 1px solid #d9dce1; background: #fff; border-radius: 6px;
+      padding: 6px 12px; font-size: 12px; cursor: pointer; color: #4e5969;
+    }
+    .preset:hover { border-color: #00b3a6; color: #00b3a6; }
+  </style>
+</head>
+<body>
+  <h1>BOSS AI 自我介绍助手 · 设置</h1>
+
+  <h2>AI 服务</h2>
+  <label>API Key（必填）</label>
+  <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off" />
+  <div class="hint">支持任意 OpenAI 兼容接口。在对应平台控制台创建：DeepSeek（platform.deepseek.com）、Kimi（platform.moonshot.cn）、通义（百炼）等。</div>
+
+  <div class="presets">
+    <button class="preset" data-url="https://api.deepseek.com/v1" data-model="deepseek-chat">DeepSeek</button>
+    <button class="preset" data-url="https://api.moonshot.cn/v1" data-model="moonshot-v1-8k">Kimi</button>
+    <button class="preset" data-url="https://dashscope.aliyuncs.com/compatible-mode/v1" data-model="qwen-plus">通义千问</button>
+  </div>
+
+  <label>API 地址（Base URL）</label>
+  <input type="text" id="baseUrl" placeholder="https://api.deepseek.com/v1" />
+
+  <label>模型名称</label>
+  <input type="text" id="model" placeholder="deepseek-chat" />
+
+  <h2>个人素材（生成时模型只能使用这些，绝不编造）</h2>
+  <label>姓名</label>
+  <input type="text" id="name" placeholder="你的姓名" />
+
+  <label>结尾语</label>
+  <input type="text" id="closing" placeholder="有作品集可发，期待您的回复～" />
+
+  <label>真实经历素材（每行一条）</label>
+  <textarea id="profile" rows="7" placeholder="每行一条你的真实经历，例如：&#10;6 年互联网产品经验，其中 2 年 AI / Agent 产品经验&#10;在某公司负责 XX 项目，把 XX 指标从 A 提升到 B&#10;擅长把 AI 想法落地成可交付的生产系统"></textarea>
+  <div class="hint">生成自我介绍时模型只允许使用这里的事实，避免编造经历和数据。请务必填写你自己的真实经历。</div>
+
+  <div class="btn-row">
+    <button class="btn" id="save">保存设置</button>
+    <button class="btn ghost" id="test">测试连接</button>
+    <span id="save-status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

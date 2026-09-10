@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "BOSS AI 自我介绍助手",
+  "version": "0.2.0",
+  "description": "在 BOSS直聘 岗位详情页读取岗位描述，一键生成贴合岗位的定制化自我介绍，可复制或填入打招呼框。小猫修理工动画助手。",
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.deepseek.com/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "BOSS AI 自我介绍助手"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://*.zhipin.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/frames/*"],
+      "matches": ["https://*.zhipin.com/*"]
+    }
+  ]
+}

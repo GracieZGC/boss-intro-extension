@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+
+# 打包产物
+*.zip
+*.crx
+*.pem
+dist/
+
+# 临时文件
+*.log
+*.tmp

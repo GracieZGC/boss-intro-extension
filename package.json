@@ -1,0 +1,20 @@
+{
+  "name": "boss-intro-extension",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Chrome 扩展（MV3）：在 BOSS直聘 岗位详情页自动读取岗位描述，生成贴合岗位的定制化自我介绍",
+  "keywords": [
+    "chrome-extension",
+    "manifest-v3",
+    "boss-zhipin",
+    "resume",
+    "ai"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
