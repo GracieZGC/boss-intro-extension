@@ -836,19 +836,24 @@
 
   function watchUrl() {
     let last = location.href;
-    let timer = null;
+    let timers = [];
     setInterval(() => {
       if (location.href !== last) {
         console.log('[boss-intro] URL changed:', last, '->', location.href);
         last = location.href;
-        clearTimeout(timer);
-        // BOSS 是 SPA：切岗位时 URL 先变、DOM 后渲染，延迟再抓取。
-        timer = setTimeout(() => {
-          console.log('[boss-intro] refreshJob after delay, url:', location.href);
+        timers.forEach(clearTimeout);
+        timers = [];
+        // BOSS 是 SPA：切岗位时 URL 先变、DOM 后渲染，分两波延迟抓取。
+        timers.push(setTimeout(() => {
+          console.log('[boss-intro] wave1 refreshJob, url:', location.href);
+          refreshJob(true);
+        }, 600));
+        timers.push(setTimeout(() => {
+          console.log('[boss-intro] wave2 refreshJob, url:', location.href);
           refreshJob(true);
           const reqWrap = document.getElementById(ASSET_ID + '-req-wrap');
           if (reqWrap) reqWrap.style.display = 'none';
-        }, 800);
+        }, 1200));
       }
     }, 1500);
   }
