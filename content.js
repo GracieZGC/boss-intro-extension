@@ -118,37 +118,106 @@
     return null;
   }
 
-  function grabJob() {
-    let title = '';
-    for (const sel of TITLE_SELECTORS) {
-      const el = document.querySelector(sel);
-      const t = cleanTitle(cleanText(el).split('\n')[0]);
-      if (t && t.length >= 2 && t.length <= 40) { title = t; break; }
+  function isVisible(el) {
+    if (!el || typeof el.getBoundingClientRect !== 'function') return false;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1) return false;
+    let st = null;
+    try { st = getComputedStyle(el); } catch (e) { st = null; }
+    if (st && (st.display === 'none' || st.visibility === 'hidden')) return false;
+    return true;
+  }
+
+  // BOSS 列表页里每个岗位卡片都有自己的标题/摘要，全局 querySelector 只会命中
+  // 列表第一项，导致「切换岗位后面板内容一直不变」。这里识别并跳过列表卡片，
+  // 优先取右侧/下方真正的详情区内容。
+  function inListCard(el) {
+    let cur = el;
+    for (let i = 0; i < 6 && cur; i++) {
+      const raw = cur.className;
+      const cls = String((raw && raw.baseVal) || raw || '');
+      if (/job-card|jobCard|job-list|jobList|list-item|card-item|job-item/.test(cls)) return true;
+      cur = cur.parentElement;
     }
+    return false;
+  }
+
+  function pickVisibleText(selectors, minLen) {
+    for (const sel of selectors) {
+      const els = document.querySelectorAll(sel);
+      if (!els.length) continue;
+      let visCount = 0;
+      let pick = '';
+      let used = sel;
+      // 第一轮：可见 + 不在列表卡片内（详情区优先）
+      for (const el of els) {
+        if (!isVisible(el)) continue;
+        visCount += 1;
+        if (inListCard(el)) continue;
+        const t = cleanText(el);
+        if (t && t.length >= minLen) { pick = t; break; }
+      }
+      // 第二轮：放宽条件，允许列表卡片内的匹配
+      if (!pick) {
+        for (const el of els) {
+          if (!isVisible(el)) continue;
+          const t = cleanText(el);
+          if (t && t.length >= minLen) { pick = t; break; }
+        }
+      }
+      if (pick) return { text: pick, sel: used, matched: els.length, visible: visCount };
+    }
+    return null;
+  }
+
+  function grabJob() {
+    const diag = [];
+    let title = '';
+
+    // 标题：同样优先详情区，避免抓到列表里第一个岗位的标题
+    const titleHit = pickVisibleText(TITLE_SELECTORS, 2);
+    if (titleHit) {
+      const first = cleanTitle(titleHit.text.split('\n')[0]);
+      if (first && first.length >= 2 && first.length <= 40) {
+        title = first;
+        diag.push('T' + titleHit.matched + '/' + titleHit.visible + '=' + titleHit.sel);
+      }
+    }
+    if (!title) diag.push('T=None');
 
     let desc = '';
-    for (const sel of DESC_SELECTORS) {
-      const el = document.querySelector(sel);
-      const t = cleanText(el);
-      if (t && t.length >= 40) { desc = t; break; }
+    let company = '';
+    const descHit = pickVisibleText(DESC_SELECTORS, 40);
+    if (descHit) {
+      // 在命中的容器文本内再做一次结构化提取（去噪音，切到「工作地址」为止）
+      const scopedHit = extractJobData(descHit.text);
+      desc = scopedHit.desc || descHit.text;
+      company = scopedHit.company || '';
+      diag.push('D' + descHit.matched + '/' + descHit.visible + '=' + descHit.sel);
     }
+    if (!desc) diag.push('D=None');
 
-    const scoped = extractJobData(cleanText(document.body));
-    if (scoped.desc) desc = scoped.desc;
+    // 仅在详情区没抓到时才退回「整页文本」提取：
+    // 列表页整页文本极易抓到列表第一项，不能让它覆盖详情区结果。
+    const scopedBody = extractJobData(cleanText(document.body));
+    if (!desc && scopedBody.desc) { desc = scopedBody.desc; diag.push('D=extractJobData'); }
+    if (!company) company = scopedBody.company || '';
 
     if (!desc) {
       const head = findDescByHeading();
-      if (head) desc = cleanText(head);
+      if (head) { desc = cleanText(head); diag.push('D=findDescByHeading'); }
     }
 
     if (!desc) {
       let best = '';
       const all = document.querySelectorAll('div,section,article,li,p');
       for (const el of all) {
+        if (!isVisible(el)) continue;
         const t = cleanText(el);
         if (t.length > best.length && t.length >= 40 && t.length < 6000) best = t;
       }
       desc = best;
+      if (best) diag.push('D=longest');
     }
 
     const lines = desc.split('\n');
@@ -156,7 +225,7 @@
     for (const l of lines) if (!dedup.includes(l)) dedup.push(l);
     desc = dedup.join('\n');
 
-    return { title, desc, company: scoped.company };
+    return { title, desc, company, diag: diag.join(' ') };
   }
 
   // ---------- 帧动画播放器 ----------
@@ -715,7 +784,7 @@
     status.textContent = desc
       ? '猫猫已抓取岗位描述（' + desc.length + ' 字）'
       : '猫猫没抓到岗位描述，请手动粘贴（若能选中页面文字，选中后复制到此处）。';
-    updateDebugBadge(title, desc, location.href);
+    updateDebugBadge(title, desc, location.href, 'refreshJob ' + diag);
   }
 
   function generate() {
@@ -868,7 +937,10 @@
     const tInput = document.getElementById(ASSET_ID + '-title');
     const dInput = document.getElementById(ASSET_ID + '-desc');
     if (!tInput || !dInput) return;
-    const { title, desc, company } = grabJob();
+    const { title, desc, company, diag } = grabJob();
+    debugCalls += 1;
+    // 每次抓取都更新浮标（哪怕结果为空），否则无法区分「没触发」和「抓取失败」
+    updateDebugBadge(title, desc, location.href, 'call#' + debugCalls + ' ' + diag);
     const tChanged = !!title && title !== tInput.value;
     const dChanged = !!desc && desc !== dInput.value;
     if (!tChanged && !dChanged) return;
@@ -882,7 +954,6 @@
     if (status && desc) status.textContent = '猫猫已抓取岗位描述（' + desc.length + ' 字）';
     const reqWrap = document.getElementById(ASSET_ID + '-req-wrap');
     if (reqWrap) reqWrap.style.display = 'none';
-    updateDebugBadge(title, desc, location.href);
   }
 
   // BOSS 列表页点岗位卡片时详情在同一页面内展开，URL 不变，
@@ -914,16 +985,21 @@
   }
 
   let debugBadge = null;
-  function updateDebugBadge(title, desc, url) {
+  let debugCalls = 0;
+  function updateDebugBadge(title, desc, url, extra) {
     if (!debugBadge) {
       debugBadge = document.createElement('div');
       debugBadge.id = ASSET_ID + '-debug';
-      debugBadge.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647;background:#1D1D1B;color:#fff;font:12px/1.5 system-ui;padding:8px 10px;border-radius:8px;max-width:320px;word-break:break-all;pointer-events:none;opacity:.85;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+      debugBadge.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647;background:#1D1D1B;color:#fff;font:12px/1.5 system-ui;padding:8px 10px;border-radius:8px;max-width:340px;word-break:break-all;pointer-events:none;opacity:.9;box-shadow:0 4px 12px rgba(0,0,0,.25);';
       document.body.appendChild(debugBadge);
     }
-    const shortUrl = String(url || location.href).slice(0, 80);
-    const shortDesc = String(desc || '').slice(0, 60);
-    debugBadge.textContent = '[boss-intro debug]\nurl: ' + shortUrl + '\ntitle: ' + (title || '-') + '\ndesc: ' + shortDesc + ' (' + (desc || '').length + '字)';
+    const shortUrl = String(url || location.href).slice(0, 70);
+    const shortDesc = String(desc || '').slice(0, 50);
+    debugBadge.textContent = '[boss-intro debug]\n'
+      + 'url: ' + shortUrl + '\n'
+      + 'title: ' + (title || '-') + '\n'
+      + 'desc: ' + shortDesc + ' (' + (desc || '').length + '字)\n'
+      + 'info: ' + (extra || '-');
   }
 
   function init() {
