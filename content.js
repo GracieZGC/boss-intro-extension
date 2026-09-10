@@ -196,13 +196,10 @@
     for (const sel of selectors) {
       const els = document.querySelectorAll(sel);
       if (!els.length) continue;
-      let visCount = 0;
       let pick = '';
-      let used = sel;
       // 第一轮：可见 + 不在列表卡片内（详情区优先）
       for (const el of els) {
         if (!isVisible(el)) continue;
-        visCount += 1;
         if (inListCard(el)) continue;
         const t = cleanText(el);
         if (t && t.length >= minLen) { pick = t; break; }
@@ -215,13 +212,12 @@
           if (t && t.length >= minLen) { pick = t; break; }
         }
       }
-      if (pick) return { text: pick, sel: used, matched: els.length, visible: visCount };
+      if (pick) return { text: pick, sel };
     }
     return null;
   }
 
   function grabJob() {
-    const diag = [];
     let title = '';
     const detailRoot = findDetailRoot();
 
@@ -229,54 +225,21 @@
     // 全局取第一个必然永远是列表第一项。
     if (detailRoot) {
       title = findTitleIn(detailRoot, false);
-      if (title) diag.push('T=inDetail');
       if (!title) {
         let node = detailRoot.parentElement;
         for (let i = 0; i < 4 && node && !title; i++) {
           title = findTitleIn(node, true);
-          if (title) diag.push('T=up' + (i + 1));
           node = node.parentElement;
         }
       }
-      // 诊断：详情区类名 + 区内短文本元素（用于定位标题真实 class）
-      diag.push('root=' + String(detailRoot.className || '-').slice(0, 28));
-      const innerCands = [];
-      const innerAll = detailRoot.querySelectorAll('*');
-      for (const el of innerAll) {
-        if (innerCands.length >= 6) break;
-        if (el.children.length > 0) continue;
-        if (!isVisible(el)) continue;
-        const t = cleanText(el);
-        if (t.length < 2 || t.length > 40) continue;
-        const cls = String(el.className || el.tagName).slice(0, 18);
-        innerCands.push(cls + ':' + t.slice(0, 10));
-      }
-      if (innerCands.length) diag.push('in=' + innerCands.join('|'));
     }
 
     if (!title) {
       const titleHit = pickVisibleText(TITLE_SELECTORS, 2);
       if (titleHit) {
         const first = cleanTitle(titleHit.text.split('\n')[0]);
-        if (first && first.length >= 2 && first.length <= 40) {
-          title = first;
-          diag.push('T' + titleHit.matched + '/' + titleHit.visible + '=' + titleHit.sel);
-        }
+        if (first && first.length >= 2 && first.length <= 40) title = first;
       }
-    }
-    if (!title) diag.push('T=None');
-
-    // 诊断：列出前 4 个可见候选标题，并标记是否被判为列表卡片（#L=列表卡片）
-    const allT = document.querySelectorAll('.job-title');
-    if (allT.length) {
-      const samples = [];
-      for (let i = 0; i < allT.length && samples.length < 4; i++) {
-        const el = allT[i];
-        if (!isVisible(el)) continue;
-        const t = cleanText(el).split('\n')[0].slice(0, 9);
-        if (t) samples.push(t + (inListCard(el) ? '#L' : '#D'));
-      }
-      if (samples.length) diag.push('cand:' + samples.join('|'));
     }
 
     let desc = '';
@@ -286,7 +249,6 @@
       const scopedDetail = extractJobData(cleanText(detailRoot));
       desc = scopedDetail.desc || cleanText(detailRoot);
       company = scopedDetail.company || '';
-      diag.push('D=detailRoot');
     }
     if (!desc) {
       const descHit = pickVisibleText(DESC_SELECTORS, 40);
@@ -295,20 +257,18 @@
         const scopedHit = extractJobData(descHit.text);
         desc = scopedHit.desc || descHit.text;
         company = scopedHit.company || '';
-        diag.push('D' + descHit.matched + '/' + descHit.visible + '=' + descHit.sel);
       }
     }
-    if (!desc) diag.push('D=None');
 
     // 仅在详情区没抓到时才退回「整页文本」提取：
     // 列表页整页文本极易抓到列表第一项，不能让它覆盖详情区结果。
     const scopedBody = extractJobData(cleanText(document.body));
-    if (!desc && scopedBody.desc) { desc = scopedBody.desc; diag.push('D=extractJobData'); }
+    if (!desc && scopedBody.desc) desc = scopedBody.desc;
     if (!company) company = scopedBody.company || '';
 
     if (!desc) {
       const head = findDescByHeading();
-      if (head) { desc = cleanText(head); diag.push('D=findDescByHeading'); }
+      if (head) desc = cleanText(head);
     }
 
     if (!desc) {
@@ -320,7 +280,6 @@
         if (t.length > best.length && t.length >= 40 && t.length < 6000) best = t;
       }
       desc = best;
-      if (best) diag.push('D=longest');
     }
 
     const lines = desc.split('\n');
@@ -328,7 +287,7 @@
     for (const l of lines) if (!dedup.includes(l)) dedup.push(l);
     desc = dedup.join('\n');
 
-    return { title, desc, company, diag: diag.join(' ') };
+    return { title, desc, company };
   }
 
   // ---------- 帧动画播放器 ----------
@@ -887,7 +846,6 @@
     status.textContent = desc
       ? '猫猫已抓取岗位描述（' + desc.length + ' 字）'
       : '猫猫没抓到岗位描述，请手动粘贴（若能选中页面文字，选中后复制到此处）。';
-    updateDebugBadge(title, desc, location.href, 'refreshJob ' + diag);
   }
 
   function generate() {
@@ -1012,17 +970,14 @@
     let timers = [];
     const trigger = () => {
       if (location.href !== last) {
-        console.log('[boss-intro] URL changed:', last, '->', location.href);
         last = location.href;
         timers.forEach(clearTimeout);
         timers = [];
         // BOSS 是 SPA：切岗位时 URL 先变、DOM 后渲染，分两波延迟抓取。
         timers.push(setTimeout(() => {
-          console.log('[boss-intro] wave1 refreshJob, url:', location.href);
           refreshJob(true);
         }, 600));
         timers.push(setTimeout(() => {
-          console.log('[boss-intro] wave2 refreshJob, url:', location.href);
           refreshJob(true);
           const reqWrap = document.getElementById(ASSET_ID + '-req-wrap');
           if (reqWrap) reqWrap.style.display = 'none';
@@ -1040,10 +995,7 @@
     const tInput = document.getElementById(ASSET_ID + '-title');
     const dInput = document.getElementById(ASSET_ID + '-desc');
     if (!tInput || !dInput) return;
-    const { title, desc, company, diag } = grabJob();
-    debugCalls += 1;
-    // 每次抓取都更新浮标（哪怕结果为空），否则无法区分「没触发」和「抓取失败」
-    updateDebugBadge(title, desc, location.href, 'call#' + debugCalls + ' ' + diag);
+    const { title, desc, company } = grabJob();
     const tChanged = !!title && title !== tInput.value;
     const dChanged = !!desc && desc !== dInput.value;
     if (!tChanged && !dChanged) return;
@@ -1087,29 +1039,10 @@
     }, true);
   }
 
-  let debugBadge = null;
-  let debugCalls = 0;
-  function updateDebugBadge(title, desc, url, extra) {
-    if (!debugBadge) {
-      debugBadge = document.createElement('div');
-      debugBadge.id = ASSET_ID + '-debug';
-      debugBadge.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647;background:#1D1D1B;color:#fff;font:11px/1.45 ui-monospace,monospace;padding:8px 10px;border-radius:8px;max-width:460px;word-break:break-all;pointer-events:none;opacity:.92;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:pre-wrap;';
-      document.body.appendChild(debugBadge);
-    }
-    const shortUrl = String(url || location.href).slice(0, 70);
-    const shortDesc = String(desc || '').slice(0, 50);
-    debugBadge.textContent = '[boss-intro debug]\n'
-      + 'url: ' + shortUrl + '\n'
-      + 'title: ' + (title || '-') + '\n'
-      + 'desc: ' + shortDesc + ' (' + (desc || '').length + '字)\n'
-      + 'info: ' + (extra || '-');
-  }
-
   function init() {
     injectStyle();
     buildPanel();
     ensureFab();
-    updateDebugBadge('', '', location.href);
     watchUrl();
     observeDomChanges();
     observeClicks();
