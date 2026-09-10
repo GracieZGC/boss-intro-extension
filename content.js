@@ -294,7 +294,12 @@
   const MOTIONS = ['idle', 'drill', 'hand', 'delivery'];
   // idle 用 20fps 完整动作（73帧），其余 12fps（12帧）
   const FRAME_COUNT = { idle: 73, drill: 12, hand: 12, delivery: 12 };
-  const FRAME_MS = { idle: 50, drill: 85, hand: 85, delivery: 85 };
+  const FRAME_MS = { idle: 50, drill: 85, hand: 220, delivery: 85 };
+  // 各动作的起始播放帧。hand 素材的 f_000~f_009 主要是「抱着电钻」的姿势，
+  // 与「钻钻钻」视觉几乎一样；f_010 起才是举手庆祝。
+  // 因此「打磨完成」从 f_010 开始，并只在 f_010 ↔ f_011 之间往返，
+  // 避免完成状态下又出现抱钻的画面。
+  const MOTION_START = { idle: 0, drill: 0, hand: 10, delivery: 0 };
 
   function frameUrl(motion, i) {
     const n = String(i).padStart(3, '0');
@@ -392,9 +397,10 @@
             if (done) done();
           }
         } else if (playMode === 'loop') {
+          const startIdx = MOTION_START[motion] || 0;
           idx += dir;
           if (idx >= lastIdx) { idx = lastIdx; dir = -1; }
-          else if (idx <= 0) { idx = 0; dir = 1; }
+          else if (idx <= startIdx) { idx = startIdx; dir = 1; }
           draw(idx);
         }
       }
@@ -407,27 +413,29 @@
       preloadMotion(m);
       frames = frameCache[m];
       frames.forEach(bindFrameLoad);
-      idx = 0;
+      idx = MOTION_START[m] || 0;
       dir = 1;
       acc = 0;
       playMode = 'loop';
       onComplete = null;
       // 若新动作的帧尚未加载完成，这里刻意不清空画布：
       // 保留上一帧可避免黑屏闪烁（见 cat-player 测试）。
-      // 「完成时仍显示钻」的问题由预加载解决：帧在切换前就已就绪。
-      draw(0);
+      // 「完成时仍显示钻」的问题由两点解决：
+      //   1) MOTION_START.hand 从举手段开始播放
+      //   2) 帧在切换前已预加载就绪
+      draw(idx);
     };
     canvas.__playOnce = (m, done) => {
       motion = m;
       preloadMotion(m);
       frames = frameCache[m];
       frames.forEach(bindFrameLoad);
-      idx = 0;
+      idx = MOTION_START[m] || 0;
       dir = 1;
       acc = 0;
       playMode = 'once';
       onComplete = typeof done === 'function' ? done : null;
-      draw(0);
+      draw(idx);
     };
     canvas.__stop = () => { alive = false; if (raf) cancelAnimationFrame(raf); };
     return canvas;
