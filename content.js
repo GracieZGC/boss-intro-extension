@@ -295,11 +295,11 @@
   // idle 用 20fps 完整动作（73帧），其余 12fps（12帧）
   const FRAME_COUNT = { idle: 73, drill: 12, hand: 12, delivery: 12 };
   const FRAME_MS = { idle: 50, drill: 85, hand: 220, delivery: 85 };
-  // 各动作的起始播放帧。hand 素材的 f_000~f_009 主要是「抱着电钻」的姿势，
-  // 与「钻钻钻」视觉几乎一样；f_010 起才是举手庆祝。
-  // 因此「打磨完成」从 f_010 开始，并只在 f_010 ↔ f_011 之间往返，
-  // 避免完成状态下又出现抱钻的画面。
-  const MOTION_START = { idle: 0, drill: 0, hand: 10, delivery: 0 };
+  // 各动作的起始播放帧。素材每一段都从「工作姿势」开始，末尾才是结果姿势：
+  //   hand:     f_000~f_009 抱钻  ->  f_010~f_011 举手庆祝
+  //   delivery: f_000~f_006 抱钻  ->  f_007~f_011 竖拇指点赞
+  // 从起始帧开始播放，避免完成/复制状态下又回到抱钻画面。
+  const MOTION_START = { idle: 0, drill: 0, hand: 10, delivery: 7 };
 
   function frameUrl(motion, i) {
     const n = String(i).padStart(3, '0');
