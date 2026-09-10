@@ -3,8 +3,9 @@
 (() => {
   'use strict';
 
-  if (window.__BOSS_INTRO_LOADED__) return;
-  window.__BOSS_INTRO_LOADED__ = true;
+  // 不再使用全局 window 守卫：扩展重新加载后旧页面仍会重新注入脚本，
+  // 全局守卫会导致 ensureFab / buildPanel 完全不执行，猫咪消失。
+  // ensureFab 内的 document.body.contains(fab) 已足够防重复创建。
 
   // ---------- 岗位信息抓取 ----------
 
