@@ -839,7 +839,11 @@
     setInterval(() => {
       if (location.href !== last) {
         last = location.href;
-        if (panel && panel.style.display !== 'none') refreshJob();
+        if (panel && panel.style.display !== 'none') {
+          refreshJob(true);
+          const reqWrap = document.getElementById(ASSET_ID + '-req-wrap');
+          if (reqWrap) reqWrap.style.display = 'none';
+        }
       }
     }, 1500);
   }
