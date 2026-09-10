@@ -861,6 +861,42 @@
     window.addEventListener('popstate', trigger);
   }
 
+  // 只在抓取结果「真的变了」时才更新面板：
+  // 列表页内切换岗位时 URL 不变，只能靠 DOM 变化感知；而 DOM 变化极频繁，
+  // 若无条件覆盖会闪烁并冲掉用户手改的内容，所以这里做差异判断。
+  function refreshIfJobChanged() {
+    const tInput = document.getElementById(ASSET_ID + '-title');
+    const dInput = document.getElementById(ASSET_ID + '-desc');
+    if (!tInput || !dInput) return;
+    const { title, desc, company } = grabJob();
+    const tChanged = !!title && title !== tInput.value;
+    const dChanged = !!desc && desc !== dInput.value;
+    if (!tChanged && !dChanged) return;
+    if (tChanged) tInput.value = title;
+    if (dChanged && dInput.dataset.filled !== 'user') {
+      dInput.value = desc;
+      dInput.dataset.filled = 'auto';
+    }
+    dInput.dataset.company = company || '';
+    const status = document.getElementById(ASSET_ID + '-status');
+    if (status && desc) status.textContent = '猫猫已抓取岗位描述（' + desc.length + ' 字）';
+    const reqWrap = document.getElementById(ASSET_ID + '-req-wrap');
+    if (reqWrap) reqWrap.style.display = 'none';
+    updateDebugBadge(title, desc, location.href);
+  }
+
+  // BOSS 列表页点岗位卡片时详情在同一页面内展开，URL 不变，
+  // 因此必须监听 DOM 变化才能感知「切了岗位」。
+  function observeDomChanges() {
+    if (!document.body) return;
+    let timer = null;
+    const observer = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(refreshIfJobChanged, 800);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   let debugBadge = null;
   function updateDebugBadge(title, desc, url) {
     if (!debugBadge) {
@@ -880,6 +916,7 @@
     ensureFab();
     updateDebugBadge('', '', location.href);
     watchUrl();
+    observeDomChanges();
     setTimeout(() => { if (panel && panel.style.display !== 'none') refreshJob(); }, 1200);
   }
 
