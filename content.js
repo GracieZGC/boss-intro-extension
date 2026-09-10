@@ -133,13 +133,47 @@
   // 优先取右侧/下方真正的详情区内容。
   function inListCard(el) {
     let cur = el;
-    for (let i = 0; i < 6 && cur; i++) {
+    for (let i = 0; i < 8 && cur; i++) {
       const raw = cur.className;
       const cls = String((raw && raw.baseVal) || raw || '');
-      if (/job-card|jobCard|job-list|jobList|list-item|card-item|job-item/.test(cls)) return true;
+      if (/job-card|jobCard|job-list|jobList|list-item|card-item|job-item|position-item/i.test(cls)) return true;
+      // BOSS 岗位列表项通常是 <li>；详情区的标题一般在 div/h1/h2 里
+      if (cur.tagName === 'LI') return true;
       cur = cur.parentElement;
     }
     return false;
+  }
+
+  // 定位「当前正在查看的岗位详情区」：可见、且有实质文本的详情容器。
+  // desc 就是从这里抓到的，title 也应该在同一区域内找。
+  function findDetailRoot() {
+    const selectors = [
+      '[class*="job-detail"]', '#job-detail', '.job-detail',
+      '[class*="jobDetail"]', '[class*="job-detail-container"]'
+    ];
+    for (const sel of selectors) {
+      const els = document.querySelectorAll(sel);
+      for (const el of els) {
+        if (!isVisible(el)) continue;
+        if (cleanText(el).length >= 40) return el;
+      }
+    }
+    return null;
+  }
+
+  // 在指定根节点内查找标题；先查自身再查后代
+  function findTitleIn(root, skipListCard) {
+    if (!root) return '';
+    for (const sel of TITLE_SELECTORS) {
+      const els = root.querySelectorAll(sel);
+      for (const el of els) {
+        if (!isVisible(el)) continue;
+        if (skipListCard && inListCard(el)) continue;
+        const t = cleanTitle(cleanText(el).split('\n')[0]);
+        if (t && t.length >= 2 && t.length <= 40) return t;
+      }
+    }
+    return '';
   }
 
   function pickVisibleText(selectors, minLen) {
@@ -173,27 +207,66 @@
   function grabJob() {
     const diag = [];
     let title = '';
+    const detailRoot = findDetailRoot();
 
-    // 标题：同样优先详情区，避免抓到列表里第一个岗位的标题
-    const titleHit = pickVisibleText(TITLE_SELECTORS, 2);
-    if (titleHit) {
-      const first = cleanTitle(titleHit.text.split('\n')[0]);
-      if (first && first.length >= 2 && first.length <= 40) {
-        title = first;
-        diag.push('T' + titleHit.matched + '/' + titleHit.visible + '=' + titleHit.sel);
+    // 标题优先在详情区内找：列表页全局有 15 个可见的 .job-title（每个卡片一个），
+    // 全局取第一个必然永远是列表第一项。
+    if (detailRoot) {
+      title = findTitleIn(detailRoot, false);
+      if (title) diag.push('T=inDetail');
+      if (!title) {
+        let node = detailRoot.parentElement;
+        for (let i = 0; i < 4 && node && !title; i++) {
+          title = findTitleIn(node, true);
+          if (title) diag.push('T=up' + (i + 1));
+          node = node.parentElement;
+        }
+      }
+    }
+
+    if (!title) {
+      const titleHit = pickVisibleText(TITLE_SELECTORS, 2);
+      if (titleHit) {
+        const first = cleanTitle(titleHit.text.split('\n')[0]);
+        if (first && first.length >= 2 && first.length <= 40) {
+          title = first;
+          diag.push('T' + titleHit.matched + '/' + titleHit.visible + '=' + titleHit.sel);
+        }
       }
     }
     if (!title) diag.push('T=None');
 
+    // 诊断：列出前 4 个可见候选标题，并标记是否被判为列表卡片（#L=列表卡片）
+    const allT = document.querySelectorAll('.job-title');
+    if (allT.length) {
+      const samples = [];
+      for (let i = 0; i < allT.length && samples.length < 4; i++) {
+        const el = allT[i];
+        if (!isVisible(el)) continue;
+        const t = cleanText(el).split('\n')[0].slice(0, 9);
+        if (t) samples.push(t + (inListCard(el) ? '#L' : '#D'));
+      }
+      if (samples.length) diag.push('cand:' + samples.join('|'));
+    }
+
     let desc = '';
     let company = '';
-    const descHit = pickVisibleText(DESC_SELECTORS, 40);
-    if (descHit) {
-      // 在命中的容器文本内再做一次结构化提取（去噪音，切到「工作地址」为止）
-      const scopedHit = extractJobData(descHit.text);
-      desc = scopedHit.desc || descHit.text;
-      company = scopedHit.company || '';
-      diag.push('D' + descHit.matched + '/' + descHit.visible + '=' + descHit.sel);
+    // 优先用同一个详情区容器，保证 title 和 desc 来自「当前正在看的那个岗位」
+    if (detailRoot) {
+      const scopedDetail = extractJobData(cleanText(detailRoot));
+      desc = scopedDetail.desc || cleanText(detailRoot);
+      company = scopedDetail.company || '';
+      diag.push('D=detailRoot');
+    }
+    if (!desc) {
+      const descHit = pickVisibleText(DESC_SELECTORS, 40);
+      if (descHit) {
+        // 在命中的容器文本内再做一次结构化提取（去噪音，切到「工作地址」为止）
+        const scopedHit = extractJobData(descHit.text);
+        desc = scopedHit.desc || descHit.text;
+        company = scopedHit.company || '';
+        diag.push('D' + descHit.matched + '/' + descHit.visible + '=' + descHit.sel);
+      }
     }
     if (!desc) diag.push('D=None');
 
@@ -990,7 +1063,7 @@
     if (!debugBadge) {
       debugBadge = document.createElement('div');
       debugBadge.id = ASSET_ID + '-debug';
-      debugBadge.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647;background:#1D1D1B;color:#fff;font:12px/1.5 system-ui;padding:8px 10px;border-radius:8px;max-width:340px;word-break:break-all;pointer-events:none;opacity:.9;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+      debugBadge.style.cssText = 'position:fixed;left:8px;top:8px;z-index:2147483647;background:#1D1D1B;color:#fff;font:11px/1.45 ui-monospace,monospace;padding:8px 10px;border-radius:8px;max-width:460px;word-break:break-all;pointer-events:none;opacity:.92;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:pre-wrap;';
       document.body.appendChild(debugBadge);
     }
     const shortUrl = String(url || location.href).slice(0, 70);
